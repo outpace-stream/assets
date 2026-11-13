@@ -1,17 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" fill="none" role="img" aria-labelledby="title description">
   <title id="title">Outpace logo</title>
   <desc id="description">An orange and amber circular motion mark with a play arrow in negative space.</desc>
+  <!-- CANONICAL SOURCE: edit this file, then run tools/build-logo-variants.py. -->
   <!-- Editable palette: change the gradient stops below. All artwork is vector geometry. -->
   <defs>
     <linearGradient id="orange" x1="350" y1="280" x2="810" y2="850" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ff5b35"/>
-      <stop offset="1" stop-color="#ff5129"/>
+      <stop stop-color="#fd582c"/>
+      <stop offset="1" stop-color="#fe5b2e"/>
     </linearGradient>
     <linearGradient id="amber" x1="960" y1="470" x2="540" y2="1010" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffb21c"/>
-      <stop offset="1" stop-color="#ffad1f"/>
+      <stop stop-color="#fda220"/>
+      <stop offset="1" stop-color="#fda420"/>
     </linearGradient>
   </defs>
+  <!-- Hidden for the transparent variant; the exporter enables this same layer for dark exports. -->
+  <g id="background" display="none">
+    <rect width="1254" height="1254" fill="#0a0a0a"/>
+  </g>
   <!-- The ring and upper motion streak form one continuous silhouette. -->
   <path id="ring" fill="url(#orange)" d="
     M347 476 H215

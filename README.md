@@ -4,38 +4,51 @@ Shared brand assets for the [Outpace organization](https://github.com/outpace-st
 
 ![Outpace logo](logo/outpace-logo.png)
 
-## Editable vector logo
+## Single source of truth
 
-- [Transparent SVG](logo/outpace-logo.svg): canonical editable source.
-- [Dark-background SVG](logo/outpace-logo-dark.svg): generated from the same source.
+**Edit only [logo/outpace-logo.svg](logo/outpace-logo.svg).** It owns the geometry, gradients,
+canvas, padding and background color. It contains editable vector paths, with no embedded
+bitmap or font dependencies. The hidden `background` layer is enabled for dark exports.
 
-![Editable vector recreation](logo/outpace-logo-dark.svg)
+The recreation preserves the original logo's silhouette, layout and orange-and-amber colors.
+The raster concept's incidental texture is replaced by clean vector fills.
 
-This is a hand-built vector recreation of the original mark, with smooth Bézier curves
-and editable orange/amber gradients. It contains no embedded bitmap or font dependencies.
-The original PNG/JPEG files remain unchanged; the organization avatar uses the original
-filled logo on its dark background.
+| Variant | SVG | PNG | JPEG |
+| --- | --- | --- | --- |
+| Transparent | [Source SVG](logo/outpace-logo.svg) | [PNG](logo/outpace-logo-transparent.png) | Not supported by JPEG |
+| Original dark background | [Generated SVG](logo/outpace-logo-dark.svg) | [PNG](logo/outpace-logo.png) | [JPEG](logo/outpace-logo.jpg) |
 
-To edit the logo, open `logo/outpace-logo.svg` in Inkscape, Illustrator, Figma, or a text editor:
+The PNG and JPEG exports are 1254 × 1254 pixels, matching the source SVG canvas. Transparent
+exports keep the colored mark fully filled and the background/play-arrow opening transparent.
+The organization avatar uses the dark-background JPEG.
+
+## Edit and regenerate
+
+Open the source SVG in Inkscape, Illustrator, Figma, or a text editor:
 
 - Change the `orange` and `amber` gradient stops to adjust colors.
 - Edit the `ring`, `middle-streak`, and `amber-sweep` paths to adjust the shape.
+- Edit the `background` layer's fill to change the dark background.
 - Keep the `viewBox` and its padding for a consistent avatar crop.
-- Run `python3 tools/build-logo-variants.py` to update the dark-background version.
-  Its background color is defined in that script.
 
-For a PNG export, use an SVG editor or librsvg, for example:
+Install Python 3, Pillow and librsvg (`rsvg-convert`). On Debian/Ubuntu:
 
 ```bash
-rsvg-convert -w 1024 -h 1024 -o outpace-logo-export.png logo/outpace-logo.svg
+sudo apt-get install librsvg2-bin python3-pil
 ```
 
-## Raster logo variants
+Then regenerate **all** exports and check them:
 
-- [Transparent PNG](logo/outpace-logo-transparent.png): filled orange-and-amber mark with an alpha-transparent background and play-arrow opening.
-- [Original PNG](logo/outpace-logo.png): 1254 × 1254 pixels.
-- [JPEG avatar copy](logo/outpace-logo.jpg): the smaller upload copy used for the organization avatar.
-- [Generation prompt](logo/generation-prompt.txt): the prompt used with the built-in image generation tool.
-- [Transparent variant prompt](logo/transparent-generation-prompt.txt): the background-removal edit instructions.
+```bash
+python3 tools/build-logo-variants.py
+python3 tools/build-logo-variants.py --check
+python3 -m unittest discover -s tools -p 'test_*.py'
+```
 
-The logo combines an orange-and-amber motion mark with a play arrow on a charcoal background.
+`--check` reports missing/stale exports without modifying files. It renders the SVG again and
+compares the results with the committed files. After changing a renderer/encoder version,
+regenerate and commit the exports together. Do not hand-edit generated SVG, PNG or JPEG files.
+
+The historical [concept prompt](logo/generation-prompt.txt) and
+[background-removal prompt](logo/transparent-generation-prompt.txt) document the initial design
+process. They are not inputs to the current export pipeline.
