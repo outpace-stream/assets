@@ -49,6 +49,41 @@ python3 -m unittest discover -s tools -p 'test_*.py'
 compares the results with the committed files. After changing a renderer/encoder version,
 regenerate and commit the exports together. Do not hand-edit generated SVG, PNG or JPEG files.
 
+## Wordmark
+
+[wordmark/outpace-wordmark.svg](wordmark/outpace-wordmark.svg) (light backgrounds) and
+[wordmark/outpace-wordmark-dark.svg](wordmark/outpace-wordmark-dark.svg) (dark backgrounds) hold
+the "outpace" wordmark used in the engine README banner, as outlined paths with no font
+dependency. "outp" uses a single color and "ace" the orange-to-amber gradient. Edit them directly.
+
+## Android drawables
+
+[android/res](android/res) mirrors an Android `res/` tree with the launcher icon, themed
+(monochrome) icon, notification icon, an in-app mark and the Android TV banner, all as
+VectorDrawable XML generated from the logo and dark wordmark SVGs:
+
+| File | Use |
+| --- | --- |
+| `mipmap-anydpi-v26/ic_launcher.xml` | Adaptive launcher icon (API 26+) on `@color/logo_bg` |
+| `mipmap/ic_launcher.xml` | Round launcher icon for older Android versions |
+| `drawable/ic_launcher_foreground.xml` | Adaptive icon foreground, kept inside the 66dp safe zone |
+| `drawable/ic_launcher_monochrome.xml` | Themed icon layer (Android 13+) |
+| `drawable/ic_notification.xml` | White notification silhouette |
+| `drawable/logo_mark.xml` | Full-color mark for app headers |
+| `drawable/banner.xml`, `drawable-v24/banner.xml` | 320 × 180dp TV banner; the v24 copy keeps the wordmark gradient |
+| `values/outpace_brand.xml` | `logo_bg`, the logo's background color |
+
+VectorDrawable gradients need API 24, so the base drawables use the first stop of each gradient;
+the logo's gradients are nearly flat, so the difference is invisible. Regenerate after editing a
+source SVG and check, as for the logo exports:
+
+```bash
+python3 tools/build-android-icons.py
+python3 tools/build-android-icons.py --check
+```
+
+The Android app copies `android/res` into its `app/src/main/res`. Do not hand-edit the generated XML.
+
 The historical [concept prompt](logo/generation-prompt.txt) and
 [background-removal prompt](logo/transparent-generation-prompt.txt) document the initial design
 process. They are not inputs to the current export pipeline.
