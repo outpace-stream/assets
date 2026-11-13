@@ -20,7 +20,21 @@ The raster concept's incidental texture is replaced by clean vector fills.
 
 The PNG and JPEG exports are 1254 × 1254 pixels, matching the source SVG canvas. Transparent
 exports keep the colored mark fully filled and the background/play-arrow opening transparent.
-The organization avatar uses the dark-background JPEG.
+The organization avatar uses the light app icon, [icon/outpace-icon-light.png](icon/outpace-icon-light.png).
+
+## App icons and avatars
+
+Square icons for places that crop to a circle (app launchers, GitHub and other avatars). The mark
+is scaled to 62% of the crop and shifted so the ring, rather than the whole silhouette with its
+motion streaks, sits near the centre. The framing lives in [tools/logo_geometry.py](tools/logo_geometry.py).
+
+| Variant | Background | Mark | Files |
+| --- | --- | --- | --- |
+| Light (default) | White | Orange and amber | [SVG](icon/outpace-icon-light.svg), [PNG](icon/outpace-icon-light.png) |
+| Dark | The logo's charcoal | Orange and amber | [SVG](icon/outpace-icon-dark.svg), [PNG](icon/outpace-icon-dark.png) |
+| Brand | Orange-to-amber gradient | White | [SVG](icon/outpace-icon-brand.svg), [PNG](icon/outpace-icon-brand.png) |
+
+They are generated with the logo exports below, at 1254 × 1254 pixels.
 
 ## Edit and regenerate
 
@@ -37,7 +51,7 @@ Install Python 3, Pillow and librsvg (`rsvg-convert`). On Debian/Ubuntu:
 sudo apt-get install librsvg2-bin python3-pil
 ```
 
-Then regenerate **all** exports and check them:
+Then regenerate **all** logo and icon exports and check them:
 
 ```bash
 python3 tools/build-logo-variants.py
@@ -48,6 +62,43 @@ python3 -m unittest discover -s tools -p 'test_*.py'
 `--check` reports missing/stale exports without modifying files. It renders the SVG again and
 compares the results with the committed files. After changing a renderer/encoder version,
 regenerate and commit the exports together. Do not hand-edit generated SVG, PNG or JPEG files.
+
+## Wordmark
+
+[wordmark/outpace-wordmark.svg](wordmark/outpace-wordmark.svg) (light backgrounds) and
+[wordmark/outpace-wordmark-dark.svg](wordmark/outpace-wordmark-dark.svg) (dark backgrounds) hold
+the "outpace" wordmark used in the engine README banner, as outlined paths with no font
+dependency. "outp" uses a single color and "ace" the orange-to-amber gradient. Edit them directly.
+
+## Android drawables
+
+[android/res](android/res) mirrors an Android `res/` tree with the launcher icon, themed
+(monochrome) icon, notification icon, an in-app mark and the Android TV banner, all as
+VectorDrawable XML generated from the logo and dark wordmark SVGs:
+
+| File | Use |
+| --- | --- |
+| `mipmap-anydpi-v26/ic_launcher.xml` | Adaptive launcher icon (API 26+) |
+| `drawable/ic_launcher_background.xml` | Its background: white for the default light variant |
+| `mipmap/ic_launcher.xml` | Round launcher icon for older Android versions |
+| `drawable/ic_launcher_foreground.xml` | Adaptive icon foreground, framed like the app icons for the 72dp visible area |
+| `drawable/ic_launcher_monochrome.xml` | Themed icon layer (Android 13+) |
+| `drawable/ic_notification.xml` | White notification silhouette |
+| `drawable/logo_mark.xml` | Full-color mark for app headers |
+| `drawable/banner.xml`, `drawable-v24/banner.xml` | 320 × 180dp TV banner; the v24 copy keeps the wordmark gradient |
+| `values/outpace_brand.xml` | `logo_bg`, the logo's background color (used by the banner) |
+
+The launcher uses the light icon variant; set `ANDROID_ICON` in the script to `dark` or `brand` to
+switch. VectorDrawable gradients need API 24, so the base drawables use the first stop of each gradient;
+the logo's gradients are nearly flat, so the difference is invisible. Regenerate after editing a
+source SVG and check, as for the logo exports:
+
+```bash
+python3 tools/build-android-icons.py
+python3 tools/build-android-icons.py --check
+```
+
+The Android app copies `android/res` into its `app/src/main/res`. Do not hand-edit the generated XML.
 
 The historical [concept prompt](logo/generation-prompt.txt) and
 [background-removal prompt](logo/transparent-generation-prompt.txt) document the initial design
