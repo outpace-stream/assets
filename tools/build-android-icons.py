@@ -8,17 +8,18 @@ drawable-v24 adds the banner with the wordmark's real gradient.
 """
 import argparse
 from pathlib import Path
-import re
-import xml.etree.ElementTree as ET
+
+from logo_geometry import ICON_VARIANTS, Svg, bounds, icon_frame, union
 
 ROOT = Path(__file__).resolve().parents[1]
-SVG = '{http://www.w3.org/2000/svg}'
 ANDROID = 'xmlns:android="http://schemas.android.com/apk/res/android"'
 AAPT = 'xmlns:aapt="http://schemas.android.com/aapt"'
 HEADER = '<!-- GENERATED FILE: edit {sources}, then run tools/build-android-icons.py. -->'
 
-# Mark geometry is read from the SVG; these only frame it in each drawable.
-LAUNCHER_FIT = 0.57  # Mark width as a share of the 108dp adaptive canvas; keeps it in the 66dp safe zone.
+# The launcher icon variant, from logo_geometry.ICON_VARIANTS: "light" (white disc), "dark" or "brand".
+ANDROID_ICON = 'light'
+# Launchers show a 72dp circle (or other mask) of the 108dp adaptive canvas; frame the mark for it.
+LAUNCHER_CANVAS, LAUNCHER_VISIBLE = 108, 72
 NOTIFICATION_FIT = 0.96
 BANNER = (320, 180)
 BANNER_MARK_HEIGHT = 86
@@ -32,62 +33,6 @@ def argb(color: str) -> str:
 
 def compact(d: str) -> str:
     return ' '.join(d.split())
-
-
-class Svg:
-    def __init__(self, path: Path):
-        self.root = ET.parse(path).getroot()
-        self.view_box = [float(v) for v in self.root.get('viewBox').split()]
-        self.gradients = {
-            g.get('id'): [s.get('stop-color') for s in g.iter(SVG + 'stop')]
-            for g in self.root.iter(SVG + 'linearGradient')
-        }
-
-    def paths(self):
-        """Visible paths in drawing order, as (id, d, colors). Hidden layers are skipped."""
-        out = []
-
-        def walk(element, hidden):
-            hidden = hidden or element.get('display') == 'none'
-            for child in element:
-                if child.tag == SVG + 'path' and not hidden:
-                    fill = child.get('fill')
-                    ref = re.fullmatch(r'url\(#(.+)\)', fill or '')
-                    colors = self.gradients[ref.group(1)] if ref else [fill]
-                    out.append((child.get('id'), compact(child.get('d')), colors))
-                elif child.tag == SVG + 'g':
-                    walk(child, hidden)
-
-        walk(self.root, False)
-        return out
-
-    def background(self) -> str:
-        layer = next(e for e in self.root.iter() if e.get('id') == 'background')
-        return next(layer.iter(SVG + 'rect')).get('fill')
-
-
-def bounds(d: str):
-    """Bounding box of a path's points (curve control points included, so slightly generous)."""
-    xs, ys, x, y = [], [], 0.0, 0.0
-    for cmd, args in re.findall(r'([MLHVCQZmlhvcqz])([^MLHVCQZmlhvcqz]*)', d):
-        nums = [float(n) for n in re.findall(r'-?\d*\.?\d+(?:e-?\d+)?', args)]
-        if cmd == 'H':
-            for x in nums:
-                xs.append(x); ys.append(y)
-        elif cmd == 'V':
-            for y in nums:
-                xs.append(x); ys.append(y)
-        elif cmd in 'MLCQ':
-            for i in range(0, len(nums) - 1, 2):
-                x, y = nums[i], nums[i + 1]
-                xs.append(x); ys.append(y)
-        elif cmd != 'Z' and cmd != 'z':
-            raise ValueError(f'relative path command {cmd} is not supported')
-    return min(xs), min(ys), max(xs), max(ys)
-
-
-def union(boxes):
-    return min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)
 
 
 def vector(width, height, view_w, view_h, body, sources, aapt=False):
@@ -141,8 +86,25 @@ def build(logo_path: Path, word_path: Path) -> dict[str, bytes]:
         s = canvas * fit / mw
         return group(s, canvas / 2 - s * cx, canvas / 2 - s * cy, solid_paths(mark, mono))
 
-    files['drawable/ic_launcher_foreground.xml'] = vector(108, 108, 108, 108, centred(108, LAUNCHER_FIT), logo_src)
-    files['drawable/ic_launcher_monochrome.xml'] = vector(108, 108, 108, 108, centred(108, LAUNCHER_FIT, '#FFFFFFFF'), logo_src)
+    background_kind, mark_color = ICON_VARIANTS[ANDROID_ICON]
+    ls, ltx, lty = icon_frame(logo, LAUNCHER_CANVAS, LAUNCHER_VISIBLE)
+    launcher_mark = argb(mark_color) if mark_color else None
+    files['drawable/ic_launcher_foreground.xml'] = vector(
+        108, 108, 108, 108, group(ls, ltx, lty, solid_paths(mark, launcher_mark)), logo_src)
+    files['drawable/ic_launcher_monochrome.xml'] = vector(
+        108, 108, 108, 108, group(ls, ltx, lty, solid_paths(mark, '#FFFFFFFF')), logo_src)
+    if background_kind == 'gradient':
+        orange, amber = logo.palette()
+        fill = (f'<gradient android:type="linear" android:angle="315"'
+                f' android:startColor="{argb(orange)}" android:endColor="{argb(amber)}" />')
+    else:
+        color = logo.background() if background_kind == 'background' else background_kind
+        fill = f'<solid android:color="{argb(color)}" />'
+    # A shape, not a vector, so the brand gradient works on every API level.
+    files['drawable/ic_launcher_background.xml'] = (
+        '<?xml version="1.0" encoding="utf-8"?>\n' + HEADER.format(sources=logo_src) + '\n'
+        f'<shape {ANDROID} android:shape="rectangle">\n    {fill}\n</shape>\n'
+    )
     files['drawable/ic_notification.xml'] = vector(24, 24, 24, 24, centred(24, NOTIFICATION_FIT, '#FFFFFFFF'), logo_src)
     files['drawable/logo_mark.xml'] = vector(40, 40, 40, 40, centred(40, 1.0), logo_src)
 
@@ -154,7 +116,7 @@ def build(logo_path: Path, word_path: Path) -> dict[str, bytes]:
     files['mipmap-anydpi-v26/ic_launcher.xml'] = (
         HEADER.format(sources=logo_src) + '\n'
         f'<adaptive-icon {ANDROID}>\n'
-        '    <background android:drawable="@color/logo_bg" />\n'
+        '    <background android:drawable="@drawable/ic_launcher_background" />\n'
         '    <foreground android:drawable="@drawable/ic_launcher_foreground" />\n'
         '    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />\n'
         '</adaptive-icon>\n'
@@ -162,7 +124,7 @@ def build(logo_path: Path, word_path: Path) -> dict[str, bytes]:
     files['mipmap/ic_launcher.xml'] = (
         HEADER.format(sources=logo_src) + '\n'
         f'<layer-list {ANDROID}>\n'
-        '    <item><shape android:shape="oval"><solid android:color="@color/logo_bg" /></shape></item>\n'
+        '    <item><shape android:shape="oval">' + fill + '</shape></item>\n'
         '    <item android:drawable="@drawable/ic_launcher_foreground" />\n'
         '</layer-list>\n'
     )

@@ -7,6 +7,7 @@ import unittest
 import xml.etree.ElementTree as ET
 
 SCRIPT = Path(__file__).with_name('build-android-icons.py')
+sys.path.insert(0, str(SCRIPT.parent))
 ROOT = SCRIPT.parents[1]
 LOGO = ROOT / 'logo' / 'outpace-logo.svg'
 WORD = ROOT / 'wordmark' / 'outpace-wordmark-dark.svg'
@@ -47,6 +48,18 @@ class AndroidIconTests(unittest.TestCase):
         self.assertIn(b'#FF12AB34', files['values/outpace_brand.xml'])
         self.assertIn(b'#FF12AB34', files['drawable/banner.xml'])
 
+    def test_launcher_background_follows_the_selected_variant(self):
+        self.assertIn(b'#FFFFFFFF', self.files['drawable/ic_launcher_background.xml'])
+        original = builder.ANDROID_ICON
+        try:
+            builder.ANDROID_ICON = 'brand'
+            files = builder.build(LOGO, WORD)
+        finally:
+            builder.ANDROID_ICON = original
+        self.assertIn(b'<gradient', files['drawable/ic_launcher_background.xml'])
+        fills = {p.get(ANDROID + 'fillColor') for p in ET.fromstring(files['drawable/ic_launcher_foreground.xml']).iter('path')}
+        self.assertEqual(fills, {'#FFFFFFFF'})
+
     def test_banner_gradient_only_in_v24(self):
         self.assertNotIn(b'<gradient', self.files['drawable/banner.xml'])
         self.assertIn(b'<gradient', self.files['drawable-v24/banner.xml'])
@@ -54,7 +67,7 @@ class AndroidIconTests(unittest.TestCase):
     def test_check_detects_a_stale_output_without_rewriting_it(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for rel in ('tools/' + SCRIPT.name, 'logo/' + LOGO.name, 'wordmark/' + WORD.name):
+            for rel in ('tools/' + SCRIPT.name, 'tools/logo_geometry.py', 'logo/' + LOGO.name, 'wordmark/' + WORD.name):
                 target = root / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text((ROOT / rel).read_text())

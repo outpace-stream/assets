@@ -9,6 +9,8 @@ import unittest
 from PIL import Image
 
 SCRIPT = Path(__file__).with_name('build-logo-variants.py')
+GEOMETRY = Path(__file__).with_name('logo_geometry.py')
+sys.path.insert(0, str(SCRIPT.parent))
 SOURCE = SCRIPT.parents[1] / 'logo' / 'outpace-logo.svg'
 spec = importlib.util.spec_from_file_location('logo_builder', SCRIPT)
 builder = importlib.util.module_from_spec(spec)
@@ -46,6 +48,7 @@ class LogoBuildTests(unittest.TestCase):
             (root / 'logo').mkdir()
             script = root / 'tools' / SCRIPT.name
             script.write_text(SCRIPT.read_text())
+            (root / 'tools' / GEOMETRY.name).write_text(GEOMETRY.read_text())
             (root / 'logo' / SOURCE.name).write_text(SOURCE.read_text())
             subprocess.run([sys.executable, str(script)], check=True, capture_output=True)
             stale = root / 'logo' / 'outpace-logo.png'
@@ -54,6 +57,33 @@ class LogoBuildTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn('outpace-logo.png', result.stdout)
             self.assertEqual(stale.read_bytes(), b'stale export')
+
+
+    def test_icon_variants_share_framing_and_differ_in_background(self):
+        files = builder.build_icons(SOURCE)
+        icons = {name: Image.open(BytesIO(files[f'outpace-icon-{name}.png'])).convert('RGB') for name in ('dark', 'light', 'brand')}
+        for image in icons.values():
+            self.assertEqual(image.size, (1254, 1254))
+        self.assertEqual(icons['dark'].getpixel((10, 10)), (10, 10, 10))
+        self.assertEqual(icons['light'].getpixel((10, 10)), (255, 255, 255))
+        corner = icons['brand'].getpixel((10, 10))
+        self.assertGreater(corner[0], 240)
+        self.assertLess(corner[2], 80)
+        # The ring is drawn at the same place in every variant: white in "brand", orange elsewhere.
+        import logo_geometry
+        scale, tx, ty = logo_geometry.icon_frame(logo_geometry.Svg(SOURCE), 1254)
+        ring = (round(tx + scale * 800), round(ty + scale * 330))  # inside the ring's orange upper arc
+        self.assertEqual(icons['brand'].getpixel(ring), (255, 255, 255))
+        self.assertGreater(icons['light'].getpixel(ring)[0], 240)
+        self.assertLess(icons['light'].getpixel(ring)[2], 80)
+
+    def test_icon_mark_fits_inside_the_circular_crop(self):
+        light = Image.open(BytesIO(builder.build_icons(SOURCE)['outpace-icon-light.png'])).convert('RGB')
+        r = 627
+        for x in range(0, 1254, 6):
+            for y in range(0, 1254, 6):
+                if (x - r) ** 2 + (y - r) ** 2 > (0.97 * r) ** 2:
+                    self.assertEqual(light.getpixel((x, y)), (255, 255, 255), (x, y))
 
 
 if __name__ == '__main__':
